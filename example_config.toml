@@ -1,0 +1,7 @@
+es_hosts = [
+    "scheme://address:port"
+]
+es_api_key = "supersecret"
+
+status_index = "some-indexi-name"
+index = "some-index-name"

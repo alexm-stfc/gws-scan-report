@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "scan-report"
+version = "0.1.0"
+description = ""
+authors = ["Alex Manning <alexander.manning@stfc.ac.uk>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+gws-volume-scanner = {git = "https://github.com/cedadev/gws-scanner.git", rev = "main"}
+tomli = "^2.0.1"
+matplotlib = "^3.5.2"
+pandas = "^1.4.2"
+humanize = "^4.1.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[tool.poetry.scripts]
+report = 'scan_report.cli:main'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
