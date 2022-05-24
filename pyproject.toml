@@ -5,7 +5,7 @@ description = ""
 authors = ["Alex Manning <alexander.manning@stfc.ac.uk>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 gws-volume-scanner = {git = "https://github.com/cedadev/gws-scanner.git", rev = "main"}
 tomli = "^2.0.1"
 matplotlib = "^3.5.2"
