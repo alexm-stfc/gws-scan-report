@@ -19,6 +19,8 @@ def main():
         "output", help="The location you would like the output to be saved."
     )
     parser.add_argument("--depth", default=1, type=int, help="How deep to go.")
+    parser.add_argument("--type", default="pdf", type=str, help="What type of output")
+    parser.add_argument("--brief", default=False, type=bool, help="Brief output excluding filetypes and some other information")
     args = parser.parse_args()
     path = pathlib.Path(args.config_file).resolve().expanduser()
     with open(path, "rb") as thefile:
@@ -34,19 +36,116 @@ def main():
     queue = [args.path]
     base = queue[0].count("/")
     depth = args.depth
-    with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
-        while queue:
-            path = queue.pop()
-            path.count("/")
-            if (path.count("/") - base) < depth:
-                data = tree(path, toml_dict)
-                childs = [
-                    f'{path}/{x["path"]}'
-                    for x in data["children"]
-                    if x["path"] != "__unindexed_children__"
-                ]
-                queue.extend(childs)
-                draw_row(pdf, data)
+
+    if args.type == 'pdf':
+        with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
+            while queue:
+                path = queue.pop()
+                path.count("/")
+                if (path.count("/") - base) < depth:
+                    data = tree(path, toml_dict)
+                    childs = [
+                        f'{path}/{x["path"]}'
+                        for x in data["children"]
+                        if x["path"] != "__unindexed_children__"
+                    ]
+                    queue.extend(childs)
+                    draw_row(pdf, data)
+    elif args.type == 'csv':
+        with open(args.output, 'w') as out_file:
+            while queue:
+                path = queue.pop()
+                path.count("/")
+                if (path.count("/") - base) < depth:
+                    data = tree(path, toml_dict)
+                    childs = [
+                        f'{path}/{x["path"]}'
+                        for x in data["children"]
+                        if x["path"] != "__unindexed_children__"
+                    ]
+                    queue.extend(childs)
+                    to_csv(out_file, data, args.brief)
+
+def to_csv(fo, data, brief=False):
+    try:
+        children = pd.DataFrame(data["children"])
+        children.sort_values("path", inplace=True)
+        children = children[children["size"] > 0]
+
+        children["size_human"] = [humanize.naturalsize(x) for x in children["size"]]
+        children["count_human"] = [humanize.intword(x) for x in children["count"]]
+        children.drop(
+            labels=["es_doc_count", "mean_heat", "count", "size"], axis=1, inplace=True
+        )
+
+        users = pd.DataFrame(data["users"])
+        users = users.transpose()
+        #users.sort_values("size", inplace=True)
+        users.sort_index(inplace=True)
+        users["size_human"] = [humanize.naturalsize(x) for x in users["size"]]
+        users["count_human"] = [humanize.intword(x) for x in users["count"]]
+        users.drop(labels=["count", "size"], axis=1, inplace=True)
+
+        filetypes = pd.DataFrame(data["filetypes"])
+        filetypes = filetypes.transpose()
+        filetypes.sort_values("size", inplace=True)
+        filetypes["size_human"] = [humanize.naturalsize(x) for x in filetypes["size"]]
+        filetypes["count_human"] = [humanize.intword(x) for x in filetypes["count"]]
+        filetypes.drop(labels=["count", "size"], axis=1, inplace=True)
+        filetypes.reset_index(inplace=True)
+
+        heat = pd.DataFrame(data["heat"])
+        heat = heat.transpose()
+        #heat.sort_values("size", inplace=True)
+        heat.sort_index(inplace=True)
+        heat["size_human"] = [humanize.naturalsize(x) for x in heat["size"]]
+        heat["count_human"] = [humanize.intword(x) for x in heat["count"]]
+        heat.drop(labels=["count", "size"], axis=1, inplace=True)
+
+        del data["children"]
+        del data["users"]
+        del data["filetypes"]
+        del data["heat"]
+
+        data["total_size"] = humanize.naturalsize(data["total_size"])
+        data["total_count"] = humanize.intword(data["total_count"])
+        toplevel = pd.DataFrame(data, index=[0])
+        if brief:
+            fo.write('At level {}\n'.format(toplevel['path'].values[0]))
+            fo.write('Children\n')
+            children.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Users\n')
+            users.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Heat (Last access time using atime)\n')
+            heat.to_csv(fo)
+            fo.write('\n\n')
+        else:
+            fo.write('Top level\n')
+            toplevel.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Children\n')
+            children.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Users\n')
+            users.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Filetype\n')
+            filetypes.to_csv(fo)
+            fo.write('\n')
+
+            fo.write('Heat (Last access time using atime)\n')
+            heat.to_csv(fo)
+            fo.write('\n')
+    
+    except (KeyError, IndexError):
+        pass
 
 
 def draw_row(pdf, data):
